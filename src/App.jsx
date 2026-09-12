@@ -1,0 +1,550 @@
+import React, { useState, useEffect, useMemo } from "react";
+import {
+  Home, Calendar, Wrench, User, Plus, X, ChevronRight, ArrowLeft,
+  LogOut, CheckCircle2, Clock, FileText, Shield,
+} from "lucide-react";
+import { supabase } from "./supabaseClient";
+import * as api from "./api";
+
+/* ---------------------------------------------------------------------- */
+/*  Design tokens                                                          */
+/* ---------------------------------------------------------------------- */
+const C = {
+  paper: "#EFF1EA", card: "#FBFBF8", ink: "#1F2A24", muted: "#707B70",
+  border: "#DCDFD3", accent: "#2F4C3D", accentSoft: "#E4E9E1",
+  red: "#B3452C", redSoft: "#F3E1DA", amber: "#B4842A", amberSoft: "#F3E9D6",
+  green: "#3F6B52", greenSoft: "#DEE9E1", blue: "#3A6EA5", blueSoft: "#DFE7EE",
+};
+const FONTS = `
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+.hos-display { font-family: 'Fraunces', serif; }
+.hos-body { font-family: 'IBM Plex Sans', sans-serif; }
+`;
+
+/* ---------------------------------------------------------------------- */
+/*  Domain data                                                            */
+/* ---------------------------------------------------------------------- */
+const CATEGORIES = [
+  { id: "ac", label: "AC", emoji: "❄️", intervalMonths: 6 },
+  { id: "fridge", label: "Refrigerator", emoji: "🧊", intervalMonths: null },
+  { id: "washing", label: "Washing Machine", emoji: "🧺", intervalMonths: 12 },
+  { id: "ro", label: "RO Water Purifier", emoji: "🚰", intervalMonths: 6 },
+  { id: "geyser", label: "Geyser", emoji: "🔥", intervalMonths: 12 },
+  { id: "microwave", label: "Microwave", emoji: "📡", intervalMonths: 12 },
+  { id: "tv", label: "TV", emoji: "📺", intervalMonths: null },
+  { id: "other", label: "Other", emoji: "📦", intervalMonths: 12 },
+];
+const catMeta = (id) => CATEGORIES.find((c) => c.id === id) || CATEGORIES[CATEGORIES.length - 1];
+const DAY = 1000 * 60 * 60 * 24;
+function addMonths(date, months) { const d = new Date(date); d.setMonth(d.getMonth() + months); return d; }
+function fmt(date) { return new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); }
+function monthYear(date) { return new Date(date).toLocaleDateString("en-US", { month: "long", year: "numeric" }); }
+function ageString(purchaseDate) {
+  const now = new Date(); const p = new Date(purchaseDate);
+  let months = (now.getFullYear() - p.getFullYear()) * 12 + (now.getMonth() - p.getMonth());
+  if (months < 0) months = 0;
+  const years = Math.floor(months / 12); const rem = months % 12;
+  if (years === 0) return `${rem} month${rem === 1 ? "" : "s"}`;
+  return `${years} year${years === 1 ? "" : "s"}${rem ? ` ${rem} month${rem === 1 ? "" : "s"}` : ""}`;
+}
+function evaluateAppliance(a) {
+  const meta = catMeta(a.category);
+  const now = new Date();
+  const warrantyExpiry = addMonths(a.purchaseDate, Number(a.warrantyMonths || 0));
+  const warrantyActive = warrantyExpiry > now;
+  if (!meta.intervalMonths) {
+    return { status: warrantyActive ? "green" : "neutral", message: warrantyActive ? `Warranty active until ${fmt(warrantyExpiry)}` : "Out of warranty", dueDate: null, warrantyExpiry, warrantyActive };
+  }
+  const lastEvent = a.lastServiceDate ? new Date(a.lastServiceDate) : new Date(a.purchaseDate);
+  const dueDate = addMonths(lastEvent, meta.intervalMonths);
+  const daysUntilDue = Math.round((dueDate - now) / DAY);
+  let status, message;
+  if (daysUntilDue < 0) { status = "red"; message = `Maintenance overdue by ${Math.abs(daysUntilDue)} day${Math.abs(daysUntilDue) === 1 ? "" : "s"}`; }
+  else if (daysUntilDue <= 30) { status = "amber"; message = `Service recommended within ${daysUntilDue} day${daysUntilDue === 1 ? "" : "s"}`; }
+  else { status = "green"; message = `On track — next service due ${fmt(dueDate)}`; }
+  return { status, message, dueDate, warrantyExpiry, warrantyActive };
+}
+function healthScore(appliances) {
+  if (appliances.length === 0) return 100;
+  let score = 100;
+  appliances.forEach((a) => { const { status } = evaluateAppliance(a); if (status === "red") score -= 15; if (status === "amber") score -= 6; });
+  return Math.max(0, Math.min(100, score));
+}
+const STATUS_STYLE = {
+  red: { dot: "🔴", color: C.red, soft: C.redSoft, label: "Attention Required" },
+  amber: { dot: "🟡", color: C.amber, soft: C.amberSoft, label: "Upcoming" },
+  green: { dot: "🟢", color: C.green, soft: C.greenSoft, label: "Protected" },
+  neutral: { dot: "⚪", color: C.muted, soft: "#E7E7E1", label: "No action needed" },
+};
+
+/* ---------------------------------------------------------------------- */
+/*  UI primitives                                                          */
+/* ---------------------------------------------------------------------- */
+function Pill({ status }) {
+  const s = STATUS_STYLE[status];
+  return <span className="hos-body inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium" style={{ background: s.soft, color: s.color }}><span>{s.dot}</span>{s.label}</span>;
+}
+function PrimaryButton({ children, onClick, type = "button", full, disabled }) {
+  return <button type={type} disabled={disabled} onClick={onClick} className={`hos-body rounded-md px-4 py-2.5 text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50 ${full ? "w-full" : ""}`} style={{ background: C.accent, color: "#F5F6F1" }}>{children}</button>;
+}
+function GhostButton({ children, onClick, full }) {
+  return <button type="button" onClick={onClick} className={`hos-body rounded-md border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-black/[.03] ${full ? "w-full" : ""}`} style={{ borderColor: C.border, color: C.ink }}>{children}</button>;
+}
+function Field({ label, children }) {
+  return <label className="hos-body block text-sm mb-3"><span className="block mb-1.5" style={{ color: C.muted }}>{label}</span>{children}</label>;
+}
+const inputCls = "w-full rounded-md border bg-white px-3 py-2 text-sm outline-none focus:ring-2";
+const inputStyle = { borderColor: C.border, color: C.ink };
+
+/* ---------------------------------------------------------------------- */
+/*  Landing / Auth                                                         */
+/* ---------------------------------------------------------------------- */
+function Landing({ onGetStarted }) {
+  return (
+    <div className="min-h-screen flex flex-col" style={{ background: C.paper, color: C.ink }}>
+      <div className="max-w-5xl mx-auto w-full px-6 pt-8 flex items-center gap-2">
+        <span className="text-xl">🏠</span><span className="hos-display text-lg" style={{ fontWeight: 600 }}>HomeOS</span>
+      </div>
+      <div className="flex-1 flex items-center">
+        <div className="max-w-5xl mx-auto w-full px-6 grid md:grid-cols-2 gap-12 items-center py-16">
+          <div>
+            <h1 className="hos-display leading-[1.05] text-5xl md:text-6xl" style={{ fontWeight: 500 }}>Never forget home maintenance again.</h1>
+            <p className="hos-body mt-6 text-lg" style={{ color: C.muted, maxWidth: "34ch" }}>Track every appliance's warranty and service schedule in one household control centre.</p>
+            <div className="mt-8"><PrimaryButton onClick={onGetStarted}>Get Started Free</PrimaryButton></div>
+          </div>
+          <div className="rounded-lg p-6 border" style={{ background: C.card, borderColor: C.border }}>
+            <p className="hos-body text-sm mb-4" style={{ color: C.muted }}>Good evening, Prince</p>
+            <div className="flex items-end gap-2 mb-6"><span className="hos-display text-5xl" style={{ fontWeight: 500 }}>82</span><span className="hos-body text-sm mb-1.5" style={{ color: C.muted }}>/ 100 household health</span></div>
+            <div className="space-y-3">
+              {[{ dot: "🔴", t: "RO Filter — service due in 15 days" }, { dot: "🟡", t: "AC — maintenance next month" }, { dot: "🟢", t: "Refrigerator — warranty active" }].map((r, i) => (
+                <div key={i} className="hos-body flex items-center gap-2 text-sm border-t pt-3" style={{ borderColor: C.border }}><span>{r.dot}</span><span>{r.t}</span></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AuthScreen({ onBack }) {
+  const [mode, setMode] = useState("signup"); // signup | login
+  const [form, setForm] = useState({ name: "", email: "", password: "", city: "", members: "" });
+  const [error, setError] = useState("");
+  const [pendingConfirm, setPendingConfirm] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  const submit = async () => {
+    setError(""); setLoading(true);
+    try {
+      if (mode === "signup") {
+        const { data, error: err } = await api.signUp({ email: form.email, password: form.password });
+        if (err) throw err;
+        if (!data.session) { setPendingConfirm(true); setLoading(false); return; }
+        await api.upsertProfile(data.user.id, { name: form.name, contact: form.email, city: form.city, members: form.members });
+      } else {
+        const { error: err } = await api.signIn({ email: form.email, password: form.password });
+        if (err) throw err;
+      }
+      // onAuthStateChange in the root App picks up the session from here
+    } catch (e) {
+      setError(e.message || "Something went wrong.");
+    }
+    setLoading(false);
+  };
+
+  if (pendingConfirm) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-6" style={{ background: C.paper }}>
+        <div className="w-full max-w-sm rounded-lg border p-8 text-center" style={{ background: C.card, borderColor: C.border }}>
+          <p className="hos-display text-xl mb-2" style={{ color: C.ink, fontWeight: 600 }}>Check your email</p>
+          <p className="hos-body text-sm" style={{ color: C.muted }}>We sent a confirmation link to {form.email}. Confirm it, then sign in below.</p>
+          <div className="mt-6"><GhostButton full onClick={() => { setPendingConfirm(false); setMode("login"); }}>Go to sign in</GhostButton></div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center px-6" style={{ background: C.paper }}>
+      <div className="w-full max-w-sm rounded-lg border p-8" style={{ background: C.card, borderColor: C.border }}>
+        <button onClick={onBack} className="hos-body flex items-center gap-1.5 text-sm mb-6" style={{ color: C.muted }}><ArrowLeft size={14} /> Back</button>
+        <h2 className="hos-display text-2xl mb-1" style={{ color: C.ink, fontWeight: 600 }}>{mode === "signup" ? "Create your account" : "Welcome back"}</h2>
+        <p className="hos-body text-sm mb-6" style={{ color: C.muted }}>{mode === "signup" ? "Set up your household in a minute." : "Sign in to your household."}</p>
+
+        {mode === "signup" && (
+          <>
+            <Field label="Name"><input className={inputCls} style={inputStyle} value={form.name} onChange={set("name")} placeholder="Prince Kumar" /></Field>
+            <Field label="City"><input className={inputCls} style={inputStyle} value={form.city} onChange={set("city")} placeholder="Bengaluru" /></Field>
+            <Field label="Household members (optional)"><input className={inputCls} style={inputStyle} value={form.members} onChange={set("members")} placeholder="4" /></Field>
+          </>
+        )}
+        <Field label="Email"><input type="email" className={inputCls} style={inputStyle} value={form.email} onChange={set("email")} placeholder="you@example.com" /></Field>
+        <Field label="Password"><input type="password" className={inputCls} style={inputStyle} value={form.password} onChange={set("password")} placeholder="At least 6 characters" /></Field>
+
+        {error && <p className="hos-body text-sm mb-3" style={{ color: C.red }}>{error}</p>}
+
+        <PrimaryButton full disabled={loading || !form.email || !form.password} onClick={submit}>
+          {loading ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}
+        </PrimaryButton>
+
+        <button className="hos-body text-sm mt-4 w-full text-center" style={{ color: C.muted }} onClick={() => setMode(mode === "signup" ? "login" : "signup")}>
+          {mode === "signup" ? "Already have an account? Sign in" : "New here? Create an account"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/*  Nav                                                                     */
+/* ---------------------------------------------------------------------- */
+const NAV_ITEMS = [
+  { id: "dashboard", label: "Dashboard", icon: Home },
+  { id: "myhome", label: "My Home", icon: Shield },
+  { id: "calendar", label: "Calendar", icon: Calendar },
+  { id: "services", label: "Services", icon: Wrench },
+  { id: "profile", label: "Profile", icon: User },
+];
+function Sidebar({ view, setView, onLogout }) {
+  return (
+    <div className="hidden md:flex flex-col w-56 shrink-0 border-r px-4 py-6" style={{ borderColor: C.border }}>
+      <div className="flex items-center gap-2 px-2 mb-8"><span className="text-xl">🏠</span><span className="hos-display text-lg" style={{ fontWeight: 600, color: C.ink }}>HomeOS</span></div>
+      <nav className="flex-1 space-y-1">
+        {NAV_ITEMS.map((item) => {
+          const Icon = item.icon; const active = view === item.id;
+          return <button key={item.id} onClick={() => setView(item.id)} className="hos-body w-full flex items-center gap-3 rounded-md px-3 py-2.5 text-sm text-left transition-colors" style={{ background: active ? C.accentSoft : "transparent", color: active ? C.accent : C.muted, fontWeight: active ? 600 : 400 }}><Icon size={17} />{item.label}</button>;
+        })}
+      </nav>
+      <button onClick={onLogout} className="hos-body flex items-center gap-3 px-3 py-2.5 text-sm" style={{ color: C.muted }}><LogOut size={17} /> Log out</button>
+    </div>
+  );
+}
+function BottomNav({ view, setView }) {
+  return (
+    <div className="md:hidden fixed bottom-0 left-0 right-0 border-t flex justify-around py-2 z-20" style={{ background: C.card, borderColor: C.border }}>
+      {NAV_ITEMS.map((item) => {
+        const Icon = item.icon; const active = view === item.id;
+        return <button key={item.id} onClick={() => setView(item.id)} className="flex flex-col items-center gap-0.5 px-2 py-1"><Icon size={19} color={active ? C.accent : C.muted} /><span className="hos-body text-[10px]" style={{ color: active ? C.accent : C.muted }}>{item.label}</span></button>;
+      })}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/*  Dashboard                                                               */
+/* ---------------------------------------------------------------------- */
+function Dashboard({ profile, appliances, setView, openAppliance }) {
+  const score = healthScore(appliances);
+  const evaluated = appliances.map((a) => ({ a, e: evaluateAppliance(a) }));
+  const red = evaluated.filter((x) => x.e.status === "red");
+  const amber = evaluated.filter((x) => x.e.status === "amber");
+  const green = evaluated.filter((x) => x.e.status === "green" || x.e.status === "neutral");
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  return (
+    <div className="max-w-3xl">
+      <h1 className="hos-display text-3xl mb-1" style={{ color: C.ink, fontWeight: 500 }}>{greeting}{profile?.name ? `, ${profile.name.split(" ")[0]}` : ""}</h1>
+      <p className="hos-body text-sm mb-8" style={{ color: C.muted }}>Here's how your household is doing today.</p>
+      <div className="rounded-lg border p-6 mb-8 flex items-center gap-8 flex-wrap" style={{ background: C.card, borderColor: C.border }}>
+        <div><p className="hos-body text-xs uppercase tracking-wide mb-1" style={{ color: C.muted }}>Household Health</p><p className="hos-display text-5xl" style={{ fontWeight: 500, color: C.ink }}>{score}<span className="text-xl" style={{ color: C.muted }}>/100</span></p></div>
+        <div className="flex gap-6 hos-body text-sm"><div><span className="mr-1.5">🟢</span>{green.length} Healthy</div><div><span className="mr-1.5">🟡</span>{amber.length} Need Attention Soon</div><div><span className="mr-1.5">🔴</span>{red.length} Overdue</div></div>
+      </div>
+      {appliances.length === 0 && (
+        <div className="rounded-lg border border-dashed p-8 text-center" style={{ borderColor: C.border }}>
+          <p className="hos-body text-sm mb-4" style={{ color: C.muted }}>You haven't added any appliances yet.</p>
+          <PrimaryButton onClick={() => setView("myhome")}>Add your first appliance</PrimaryButton>
+        </div>
+      )}
+      {red.length > 0 && <Section title="Needs Attention">{red.map(({ a, e }) => <ApplianceRow key={a.id} a={a} e={e} onClick={() => openAppliance(a.id)} />)}</Section>}
+      {amber.length > 0 && <Section title="Upcoming">{amber.map(({ a, e }) => <ApplianceRow key={a.id} a={a} e={e} onClick={() => openAppliance(a.id)} />)}</Section>}
+      {green.length > 0 && <Section title="Protected">{green.map(({ a, e }) => <ApplianceRow key={a.id} a={a} e={e} onClick={() => openAppliance(a.id)} />)}</Section>}
+    </div>
+  );
+}
+function Section({ title, children }) { return <div className="mb-8"><h3 className="hos-body text-xs uppercase tracking-wide mb-3" style={{ color: C.muted }}>{title}</h3><div className="space-y-2">{children}</div></div>; }
+function ApplianceRow({ a, e, onClick }) {
+  const meta = catMeta(a.category); const s = STATUS_STYLE[e.status];
+  return (
+    <button onClick={onClick} className="w-full flex items-center gap-4 rounded-md border px-4 py-3 text-left transition-colors hover:bg-black/[.02]" style={{ background: C.card, borderColor: C.border, borderLeft: `3px solid ${s.color}` }}>
+      <span className="text-xl">{meta.emoji}</span>
+      <div className="flex-1 min-w-0"><p className="hos-body text-sm font-medium" style={{ color: C.ink }}>{a.brand} {meta.label}</p><p className="hos-body text-xs mt-0.5" style={{ color: C.muted }}>{e.message}</p></div>
+      <ChevronRight size={16} color={C.muted} />
+    </button>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/*  My Home                                                                 */
+/* ---------------------------------------------------------------------- */
+function MyHome({ appliances, openAppliance, onAdd }) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  return (
+    <div className="max-w-3xl">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="hos-display text-3xl" style={{ color: C.ink, fontWeight: 500 }}>My Appliances</h1>
+        <PrimaryButton onClick={() => setShowAdd(true)}><span className="flex items-center gap-1.5"><Plus size={15} /> Add Appliance</span></PrimaryButton>
+      </div>
+      {appliances.length === 0 ? (
+        <div className="rounded-lg border border-dashed p-8 text-center" style={{ borderColor: C.border }}><p className="hos-body text-sm" style={{ color: C.muted }}>No appliances yet. Add your first one to start tracking maintenance.</p></div>
+      ) : (
+        <div className="grid sm:grid-cols-2 gap-3">
+          {appliances.map((a) => {
+            const meta = catMeta(a.category); const e = evaluateAppliance(a);
+            return (
+              <button key={a.id} onClick={() => openAppliance(a.id)} className="text-left rounded-lg border p-4 transition-colors hover:bg-black/[.02]" style={{ background: C.card, borderColor: C.border }}>
+                <div className="flex items-start justify-between mb-3"><span className="text-2xl">{meta.emoji}</span><Pill status={e.status} /></div>
+                <p className="hos-body text-sm font-medium" style={{ color: C.ink }}>{a.brand} {a.model}</p>
+                <p className="hos-body text-xs mt-0.5" style={{ color: C.muted }}>{meta.label}</p>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {showAdd && <AddApplianceModal saving={saving} onClose={() => setShowAdd(false)} onSave={async (a) => { setSaving(true); await onAdd(a); setSaving(false); setShowAdd(false); }} />}
+    </div>
+  );
+}
+function AddApplianceModal({ onClose, onSave, saving }) {
+  const [form, setForm] = useState({ category: "ac", brand: "", model: "", purchaseDate: "", warrantyMonths: "12", note: "" });
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const canSave = form.brand && form.purchaseDate;
+  return (
+    <div className="fixed inset-0 z-30 flex items-center justify-center p-4" style={{ background: "rgba(31,42,36,0.4)" }}>
+      <div className="w-full max-w-md rounded-lg p-6 max-h-[90vh] overflow-y-auto" style={{ background: C.card }}>
+        <div className="flex items-center justify-between mb-4"><h3 className="hos-display text-xl" style={{ color: C.ink, fontWeight: 600 }}>Add Appliance</h3><button onClick={onClose}><X size={18} color={C.muted} /></button></div>
+        <Field label="Category"><select className={inputCls} style={inputStyle} value={form.category} onChange={set("category")}>{CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}</select></Field>
+        <Field label="Brand"><input className={inputCls} style={inputStyle} value={form.brand} onChange={set("brand")} placeholder="Voltas" /></Field>
+        <Field label="Model"><input className={inputCls} style={inputStyle} value={form.model} onChange={set("model")} placeholder="XYZ123" /></Field>
+        <Field label="Purchase date"><input type="date" className={inputCls} style={inputStyle} value={form.purchaseDate} onChange={set("purchaseDate")} /></Field>
+        <Field label="Warranty duration (months)"><input type="number" className={inputCls} style={inputStyle} value={form.warrantyMonths} onChange={set("warrantyMonths")} /></Field>
+        <Field label="Invoice note (optional)"><input className={inputCls} style={inputStyle} value={form.note} onChange={set("note")} placeholder="e.g. invoice filed in email" /></Field>
+        <div className="flex gap-2 mt-2">
+          <GhostButton full onClick={onClose}>Cancel</GhostButton>
+          <PrimaryButton full disabled={!canSave || saving} onClick={() => onSave(form)}>{saving ? "Saving…" : "Save"}</PrimaryButton>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/*  Appliance Passport                                                     */
+/* ---------------------------------------------------------------------- */
+function AppliancePassport({ appliance, onBack, onAddService, onRequestService }) {
+  const [showService, setShowService] = useState(false);
+  const meta = catMeta(appliance.category); const e = evaluateAppliance(appliance);
+  const timeline = [{ date: appliance.purchaseDate, activity: "Purchased" }, ...appliance.serviceHistory.map((s) => ({ date: s.date, activity: s.activity }))].sort((a, b) => new Date(a.date) - new Date(b.date));
+  if (e.dueDate) timeline.push({ date: e.dueDate, activity: "Next recommended service", upcoming: true });
+  return (
+    <div className="max-w-2xl">
+      <button onClick={onBack} className="hos-body flex items-center gap-1.5 text-sm mb-6" style={{ color: C.muted }}><ArrowLeft size={15} /> Back</button>
+      <div className="flex items-center gap-3 mb-1"><span className="text-3xl">{meta.emoji}</span><h1 className="hos-display text-3xl" style={{ color: C.ink, fontWeight: 500 }}>{appliance.brand} {meta.label}</h1></div>
+      <div className="mb-6"><Pill status={e.status} /></div>
+      <div className="grid sm:grid-cols-2 gap-4 mb-6">
+        <InfoCard title="Basic Details"><InfoRow k="Brand" v={appliance.brand} /><InfoRow k="Model" v={appliance.model || "—"} /><InfoRow k="Purchased" v={fmt(appliance.purchaseDate)} /><InfoRow k="Age" v={ageString(appliance.purchaseDate)} /></InfoCard>
+        <InfoCard title="Warranty"><div className="hos-body text-sm flex items-center gap-2 mb-2" style={{ color: e.warrantyActive ? C.green : C.muted }}>{e.warrantyActive ? <CheckCircle2 size={15} /> : <Clock size={15} />}{e.warrantyActive ? "Active" : "Expired"}</div><InfoRow k="Expires" v={fmt(e.warrantyExpiry)} /></InfoCard>
+      </div>
+      <InfoCard title="Maintenance Timeline"><div className="space-y-3">{timeline.map((t, i) => <div key={i} className="hos-body flex items-center gap-4 text-sm border-t pt-3 first:border-t-0 first:pt-0" style={{ borderColor: C.border }}><span className="w-28 shrink-0" style={{ color: C.muted }}>{fmt(t.date)}</span><span style={{ color: t.upcoming ? C.amber : C.ink, fontWeight: t.upcoming ? 600 : 400 }}>{t.activity}</span></div>)}</div></InfoCard>
+      {appliance.note && <div className="hos-body flex items-center gap-2 text-sm mt-4" style={{ color: C.muted }}><FileText size={14} /> {appliance.note}</div>}
+      <div className="flex flex-wrap gap-2 mt-6"><GhostButton onClick={() => setShowService(true)}>➕ Add Service</GhostButton><GhostButton onClick={() => onRequestService(appliance)}>🔧 Find Technician</GhostButton></div>
+      {showService && <AddServiceModal onClose={() => setShowService(false)} onSave={async (entry) => { await onAddService(appliance.id, entry); setShowService(false); }} />}
+    </div>
+  );
+}
+function InfoCard({ title, children }) { return <div className="rounded-lg border p-4" style={{ background: C.card, borderColor: C.border }}><p className="hos-body text-xs uppercase tracking-wide mb-3" style={{ color: C.muted }}>{title}</p>{children}</div>; }
+function InfoRow({ k, v }) { return <div className="hos-body flex justify-between text-sm py-1"><span style={{ color: C.muted }}>{k}</span><span style={{ color: C.ink }}>{v}</span></div>; }
+function AddServiceModal({ onClose, onSave }) {
+  const [date, setDate] = useState(""); const [activity, setActivity] = useState("Service"); const [saving, setSaving] = useState(false);
+  return (
+    <div className="fixed inset-0 z-30 flex items-center justify-center p-4" style={{ background: "rgba(31,42,36,0.4)" }}>
+      <div className="w-full max-w-sm rounded-lg p-6" style={{ background: C.card }}>
+        <div className="flex items-center justify-between mb-4"><h3 className="hos-display text-xl" style={{ color: C.ink, fontWeight: 600 }}>Add Service Record</h3><button onClick={onClose}><X size={18} color={C.muted} /></button></div>
+        <Field label="Date"><input type="date" className={inputCls} style={inputStyle} value={date} onChange={(e) => setDate(e.target.value)} /></Field>
+        <Field label="Activity"><select className={inputCls} style={inputStyle} value={activity} onChange={(e) => setActivity(e.target.value)}><option>Service</option><option>Cleaning</option><option>Filter Replacement</option><option>Repair</option></select></Field>
+        <div className="flex gap-2 mt-2">
+          <GhostButton full onClick={onClose}>Cancel</GhostButton>
+          <PrimaryButton full disabled={!date || saving} onClick={async () => { setSaving(true); await onSave({ date, activity }); setSaving(false); }}>{saving ? "Saving…" : "Save"}</PrimaryButton>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/*  Calendar                                                                */
+/* ---------------------------------------------------------------------- */
+function MaintenanceCalendar({ appliances, openAppliance }) {
+  const events = useMemo(() => {
+    const list = [];
+    appliances.forEach((a) => {
+      const meta = catMeta(a.category); const e = evaluateAppliance(a);
+      if (e.dueDate) list.push({ date: new Date(e.dueDate), label: `${a.brand} ${meta.label} — maintenance due`, status: e.status, id: a.id });
+      if (e.warrantyExpiry) list.push({ date: new Date(e.warrantyExpiry), label: `${a.brand} ${meta.label} — warranty renewal`, status: "blue", id: a.id });
+    });
+    return list.sort((x, y) => x.date - y.date);
+  }, [appliances]);
+  const groups = {};
+  events.forEach((ev) => { const key = monthYear(ev.date); groups[key] = groups[key] || []; groups[key].push(ev); });
+  const dotFor = { red: "🔴", amber: "🟡", green: "🟢", blue: "🔵", neutral: "⚪" };
+  return (
+    <div className="max-w-2xl">
+      <h1 className="hos-display text-3xl mb-1" style={{ color: C.ink, fontWeight: 500 }}>Maintenance Calendar</h1>
+      <p className="hos-body text-sm mb-8" style={{ color: C.muted }}>Automatically generated from your appliances' service and warranty cycles.</p>
+      {Object.keys(groups).length === 0 && <p className="hos-body text-sm" style={{ color: C.muted }}>Add appliances to see your calendar fill in.</p>}
+      <div className="space-y-6">
+        {Object.entries(groups).map(([month, evs]) => (
+          <div key={month}>
+            <h3 className="hos-display text-lg mb-2" style={{ color: C.ink, fontWeight: 600 }}>{month}</h3>
+            <div className="space-y-2">{evs.map((ev, i) => <button key={i} onClick={() => openAppliance(ev.id)} className="w-full flex items-center gap-3 rounded-md border px-4 py-2.5 text-left hos-body text-sm hover:bg-black/[.02]" style={{ background: C.card, borderColor: C.border }}><span>{dotFor[ev.status]}</span><span style={{ color: C.ink }}>{ev.label}</span><span className="ml-auto" style={{ color: C.muted }}>{fmt(ev.date)}</span></button>)}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/*  Services                                                                */
+/* ---------------------------------------------------------------------- */
+function Services({ appliances, requests, onSubmit }) {
+  const [applianceId, setApplianceId] = useState(appliances[0]?.id || "");
+  const [issue, setIssue] = useState(""); const [submitted, setSubmitted] = useState(false); const [saving, setSaving] = useState(false);
+  useEffect(() => { if (!applianceId && appliances[0]) setApplianceId(appliances[0].id); }, [appliances]);
+  return (
+    <div className="max-w-xl">
+      <h1 className="hos-display text-3xl mb-1" style={{ color: C.ink, fontWeight: 500 }}>Service Request</h1>
+      <p className="hos-body text-sm mb-8" style={{ color: C.muted }}>Need help with an appliance? Tell us what's going on and we'll connect you with a verified technician.</p>
+      {appliances.length === 0 ? (
+        <p className="hos-body text-sm" style={{ color: C.muted }}>Add an appliance first so we know what needs service.</p>
+      ) : (
+        <div className="rounded-lg border p-5 mb-8" style={{ background: C.card, borderColor: C.border }}>
+          <Field label="Appliance"><select className={inputCls} style={inputStyle} value={applianceId} onChange={(e) => setApplianceId(e.target.value)}>{appliances.map((a) => <option key={a.id} value={a.id}>{a.brand} {catMeta(a.category).label}</option>)}</select></Field>
+          <Field label="What's the issue?"><textarea className={inputCls} style={{ ...inputStyle, minHeight: 90 }} value={issue} onChange={(e) => setIssue(e.target.value)} placeholder="e.g. AC isn't cooling properly" /></Field>
+          <PrimaryButton disabled={!applianceId || saving} onClick={async () => {
+            setSaving(true);
+            await onSubmit(applianceId, issue);
+            setSaving(false); setIssue(""); setSubmitted(true); setTimeout(() => setSubmitted(false), 4000);
+          }}>{saving ? "Sending…" : "Request Service"}</PrimaryButton>
+          {submitted && <p className="hos-body text-sm mt-3" style={{ color: C.green }}>Request received — we'll connect you with a verified technician shortly.</p>}
+        </div>
+      )}
+      {requests.length > 0 && (
+        <>
+          <h3 className="hos-body text-xs uppercase tracking-wide mb-3" style={{ color: C.muted }}>Your Requests</h3>
+          <div className="space-y-2">
+            {requests.map((r) => {
+              const a = appliances.find((x) => x.id === r.applianceId);
+              return (
+                <div key={r.id} className="hos-body rounded-md border px-4 py-3 text-sm" style={{ background: C.card, borderColor: C.border }}>
+                  <div className="flex justify-between"><span style={{ color: C.ink, fontWeight: 500 }}>{a ? `${a.brand} ${catMeta(a.category).label}` : "Appliance"}</span><span style={{ color: C.amber }}>{r.status}</span></div>
+                  {r.issue && <p style={{ color: C.muted }} className="mt-1">{r.issue}</p>}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/*  Profile                                                                 */
+/* ---------------------------------------------------------------------- */
+function Profile({ profile, onSave, onLogout }) {
+  const [form, setForm] = useState(profile || { name: "", contact: "", city: "", members: "" });
+  const [saving, setSaving] = useState(false);
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  return (
+    <div className="max-w-sm">
+      <h1 className="hos-display text-3xl mb-6" style={{ color: C.ink, fontWeight: 500 }}>Profile</h1>
+      <div className="rounded-lg border p-5" style={{ background: C.card, borderColor: C.border }}>
+        <Field label="Name"><input className={inputCls} style={inputStyle} value={form.name || ""} onChange={set("name")} /></Field>
+        <Field label="Email"><input className={inputCls} style={{ ...inputStyle, background: "#F3F4EF" }} value={form.contact || ""} disabled /></Field>
+        <Field label="City"><input className={inputCls} style={inputStyle} value={form.city || ""} onChange={set("city")} /></Field>
+        <Field label="Household members"><input className={inputCls} style={inputStyle} value={form.members || ""} onChange={set("members")} /></Field>
+        <PrimaryButton full disabled={saving} onClick={async () => { setSaving(true); await onSave(form); setSaving(false); }}>{saving ? "Saving…" : "Save changes"}</PrimaryButton>
+      </div>
+      <button onClick={onLogout} className="hos-body flex items-center gap-2 text-sm mt-6" style={{ color: C.muted }}><LogOut size={15} /> Log out</button>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/*  Root App                                                                */
+/* ---------------------------------------------------------------------- */
+export default function App() {
+  const [stage, setStage] = useState("loading"); // loading | landing | auth | app
+  const [session, setSession] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [appliances, setAppliances] = useState([]);
+  const [requests, setRequests] = useState([]);
+  const [view, setView] = useState("dashboard");
+  const [selectedId, setSelectedId] = useState(null);
+
+  async function loadAllData(userId) {
+    const [p, apps, reqs] = await Promise.all([api.fetchProfile(userId), api.fetchAppliances(userId), api.fetchRequests(userId)]);
+    setProfile(p);
+    setAppliances(apps);
+    setRequests(reqs);
+  }
+
+  useEffect(() => {
+    let mounted = true;
+    api.getSession().then(async (s) => {
+      if (!mounted) return;
+      setSession(s);
+      if (s) { await loadAllData(s.user.id); setStage("app"); } else { setStage("landing"); }
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, s) => {
+      setSession(s);
+      if (s) { await loadAllData(s.user.id); setStage("app"); }
+      else { setProfile(null); setAppliances([]); setRequests([]); setStage("landing"); }
+    });
+    return () => { mounted = false; sub.subscription.unsubscribe(); };
+  }, []);
+
+  const handleAddAppliance = async (form) => {
+    const a = await api.addAppliance(session.user.id, form);
+    setAppliances((prev) => [...prev, a]);
+  };
+  const handleAddService = async (applianceId, entry) => {
+    await api.addServiceRecord(session.user.id, applianceId, entry);
+    setAppliances((prev) => prev.map((a) => a.id === applianceId ? { ...a, lastServiceDate: entry.date, serviceHistory: [...a.serviceHistory, entry] } : a));
+  };
+  const handleSubmitRequest = async (applianceId, issue) => {
+    const r = await api.addRequest(session.user.id, applianceId, issue);
+    setRequests((prev) => [r, ...prev]);
+  };
+  const handleSaveProfile = async (form) => {
+    await api.upsertProfile(session.user.id, { name: form.name, contact: form.contact, city: form.city, members: form.members });
+    setProfile(form);
+  };
+  const handleLogout = async () => { await api.signOut(); };
+  const openAppliance = (id) => { setSelectedId(id); setView("passport"); };
+
+  if (stage === "loading") return <div className="min-h-screen flex items-center justify-center hos-body" style={{ background: C.paper, color: C.muted }}><style>{FONTS}</style>Loading…</div>;
+  if (stage === "landing") return <div><style>{FONTS}</style><Landing onGetStarted={() => setStage("auth")} /></div>;
+  if (stage === "auth") return <div><style>{FONTS}</style><AuthScreen onBack={() => setStage("landing")} /></div>;
+
+  const selected = appliances.find((a) => a.id === selectedId);
+
+  return (
+    <div className="min-h-screen flex hos-body" style={{ background: C.paper }}>
+      <style>{FONTS}</style>
+      <Sidebar view={view} setView={setView} onLogout={handleLogout} />
+      <div className="flex-1 px-6 py-8 pb-24 md:pb-8 overflow-y-auto">
+        {view === "dashboard" && <Dashboard profile={profile} appliances={appliances} setView={setView} openAppliance={openAppliance} />}
+        {view === "myhome" && <MyHome appliances={appliances} openAppliance={openAppliance} onAdd={handleAddAppliance} />}
+        {view === "passport" && selected && <AppliancePassport appliance={selected} onBack={() => setView("myhome")} onAddService={handleAddService} onRequestService={() => setView("services")} />}
+        {view === "calendar" && <MaintenanceCalendar appliances={appliances} openAppliance={openAppliance} />}
+        {view === "services" && <Services appliances={appliances} requests={requests} onSubmit={handleSubmitRequest} />}
+        {view === "profile" && <Profile profile={profile} onSave={handleSaveProfile} onLogout={handleLogout} />}
+      </div>
+      <BottomNav view={view} setView={setView} />
+    </div>
+  );
+}
