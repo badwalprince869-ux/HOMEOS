@@ -105,22 +105,11 @@ function Landing({ onGetStarted }) {
       <div className="max-w-5xl mx-auto w-full px-6 pt-8 flex items-center gap-2">
         <span className="text-xl">🏠</span><span className="hos-display text-lg" style={{ fontWeight: 600 }}>HomeOS</span>
       </div>
-      <div className="flex-1 flex items-center">
-        <div className="max-w-5xl mx-auto w-full px-6 grid md:grid-cols-2 gap-12 items-center py-16">
-          <div>
-            <h1 className="hos-display leading-[1.05] text-5xl md:text-6xl" style={{ fontWeight: 500 }}>Never forget home maintenance again.</h1>
-            <p className="hos-body mt-6 text-lg" style={{ color: C.muted, maxWidth: "34ch" }}>Track every appliance's warranty and service schedule in one household control centre.</p>
-            <div className="mt-8"><PrimaryButton onClick={onGetStarted}>Get Started Free</PrimaryButton></div>
-          </div>
-          <div className="rounded-lg p-6 border" style={{ background: C.card, borderColor: C.border }}>
-            <p className="hos-body text-sm mb-4" style={{ color: C.muted }}>Good evening, Prince</p>
-            <div className="flex items-end gap-2 mb-6"><span className="hos-display text-5xl" style={{ fontWeight: 500 }}>82</span><span className="hos-body text-sm mb-1.5" style={{ color: C.muted }}>/ 100 household health</span></div>
-            <div className="space-y-3">
-              {[{ dot: "🔴", t: "RO Filter — service due in 15 days" }, { dot: "🟡", t: "AC — maintenance next month" }, { dot: "🟢", t: "Refrigerator — warranty active" }].map((r, i) => (
-                <div key={i} className="hos-body flex items-center gap-2 text-sm border-t pt-3" style={{ borderColor: C.border }}><span>{r.dot}</span><span>{r.t}</span></div>
-              ))}
-            </div>
-          </div>
+      <div className="flex-1 flex items-center justify-center">
+        <div className="max-w-xl w-full px-6 text-center">
+          <h1 className="hos-display leading-[1.05] text-5xl md:text-6xl" style={{ fontWeight: 500 }}>Never forget home maintenance again.</h1>
+          <p className="hos-body mt-6 text-lg" style={{ color: C.muted }}>Track every appliance's warranty and service schedule in one household control centre.</p>
+          <div className="mt-8 flex justify-center"><PrimaryButton onClick={onGetStarted}>Get Started Free</PrimaryButton></div>
         </div>
       </div>
     </div>
