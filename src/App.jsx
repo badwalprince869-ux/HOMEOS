@@ -10,15 +10,15 @@ import * as api from "./api";
 /*  Design tokens                                                          */
 /* ---------------------------------------------------------------------- */
 const C = {
-  paper: "#EFF1EA", card: "#FBFBF8", ink: "#1F2A24", muted: "#707B70",
-  border: "#DCDFD3", accent: "#2F4C3D", accentSoft: "#E4E9E1",
-  red: "#B3452C", redSoft: "#F3E1DA", amber: "#B4842A", amberSoft: "#F3E9D6",
-  green: "#3F6B52", greenSoft: "#DEE9E1", blue: "#3A6EA5", blueSoft: "#DFE7EE",
+  paper: "#EEF3F9", card: "#FFFFFF", ink: "#12233F", muted: "#5B6B84",
+  border: "#DCE4EF", accent: "#1E6FD9", accentSoft: "#E3EEFC",
+  red: "#E5484D", redSoft: "#FBE4E4", amber: "#F0A020", amberSoft: "#FDF0D8",
+  green: "#2FAE60", greenSoft: "#E1F5E9", blue: "#1E6FD9", blueSoft: "#E3EEFC",
 };
 const FONTS = `
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
-.hos-display { font-family: 'Fraunces', serif; }
-.hos-body { font-family: 'IBM Plex Sans', sans-serif; }
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
+.hos-display { font-family: 'Poppins', sans-serif; }
+.hos-body { font-family: 'Poppins', sans-serif; }
 `;
 
 /* ---------------------------------------------------------------------- */
@@ -100,16 +100,52 @@ const inputStyle = { borderColor: C.border, color: C.ink };
 /*  Landing / Auth                                                         */
 /* ---------------------------------------------------------------------- */
 function Landing({ onGetStarted }) {
+  const features = [
+    { icon: Shield, title: "Track Warranties", text: "Know exactly when every appliance's coverage ends." },
+    { icon: Calendar, title: "Never Miss Service", text: "Auto-generated reminders before things break down." },
+    { icon: Wrench, title: "Request Help Fast", text: "One tap to get connected with a technician." },
+  ];
   return (
     <div className="min-h-screen flex flex-col" style={{ background: C.paper, color: C.ink }}>
       <div className="max-w-5xl mx-auto w-full px-6 pt-8 flex items-center gap-2">
-        <span className="text-xl">🏠</span><span className="hos-display text-lg" style={{ fontWeight: 600 }}>HomeOS</span>
+        <span className="text-2xl">🏠</span><span className="hos-display text-xl" style={{ fontWeight: 600 }}>HomeOS</span>
       </div>
-      <div className="flex-1 flex items-center justify-center">
-        <div className="max-w-xl w-full px-6 text-center">
-          <h1 className="hos-display leading-[1.05] text-5xl md:text-6xl" style={{ fontWeight: 500 }}>Never forget home maintenance again.</h1>
-          <p className="hos-body mt-6 text-lg" style={{ color: C.muted }}>Track every appliance's warranty and service schedule in one household control centre.</p>
-          <div className="mt-8 flex justify-center"><PrimaryButton onClick={onGetStarted}>Get Started Free</PrimaryButton></div>
+
+      <div className="flex-1 flex items-center justify-center py-16">
+        <div className="max-w-2xl w-full px-6 text-center">
+          <div className="flex justify-center gap-3 mb-6 text-3xl">
+            <span>❄️</span><span>🚰</span><span>🧺</span><span>🔥</span><span>🧊</span>
+          </div>
+          <h1 className="hos-display leading-[1.05] text-6xl md:text-7xl" style={{ fontWeight: 800 }}>
+            Never forget home<br />maintenance again.
+          </h1>
+          <p className="hos-body mt-7 text-xl" style={{ color: C.muted }}>
+            Track every appliance's warranty and service schedule in one household control centre.
+          </p>
+          <div className="mt-10 flex justify-center">
+            <button
+              onClick={onGetStarted}
+              className="hos-body rounded-md px-8 py-4 text-lg font-medium transition-opacity hover:opacity-90"
+              style={{ background: C.accent, color: "#F5F6F1" }}
+            >
+              Get Started Free
+            </button>
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-6 mt-16 text-left">
+            {features.map((f, i) => {
+              const Icon = f.icon;
+              return (
+                <div key={i} className="rounded-lg border p-5" style={{ background: C.card, borderColor: C.border }}>
+                  <div className="w-9 h-9 rounded-md flex items-center justify-center mb-3" style={{ background: C.accentSoft }}>
+                    <Icon size={18} color={C.accent} />
+                  </div>
+                  <p className="hos-body text-sm font-semibold mb-1" style={{ color: C.ink }}>{f.title}</p>
+                  <p className="hos-body text-sm" style={{ color: C.muted }}>{f.text}</p>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
@@ -234,10 +270,10 @@ function Dashboard({ profile, appliances, setView, openAppliance }) {
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
   return (
     <div className="max-w-3xl">
-      <h1 className="hos-display text-3xl mb-1" style={{ color: C.ink, fontWeight: 500 }}>{greeting}{profile?.name ? `, ${profile.name.split(" ")[0]}` : ""}</h1>
+      <h1 className="hos-display text-3xl mb-1" style={{ color: C.ink, fontWeight: 700 }}>{greeting}{profile?.name ? `, ${profile.name.split(" ")[0]}` : ""}</h1>
       <p className="hos-body text-sm mb-8" style={{ color: C.muted }}>Here's how your household is doing today.</p>
       <div className="rounded-lg border p-6 mb-8 flex items-center gap-8 flex-wrap" style={{ background: C.card, borderColor: C.border }}>
-        <div><p className="hos-body text-xs uppercase tracking-wide mb-1" style={{ color: C.muted }}>Household Health</p><p className="hos-display text-5xl" style={{ fontWeight: 500, color: C.ink }}>{score}<span className="text-xl" style={{ color: C.muted }}>/100</span></p></div>
+        <div><p className="hos-body text-xs uppercase tracking-wide mb-1" style={{ color: C.muted }}>Household Health</p><p className="hos-display text-5xl" style={{ fontWeight: 800, color: C.ink }}>{score}<span className="text-xl" style={{ color: C.muted }}>/100</span></p></div>
         <div className="flex gap-6 hos-body text-sm"><div><span className="mr-1.5">🟢</span>{green.length} Healthy</div><div><span className="mr-1.5">🟡</span>{amber.length} Need Attention Soon</div><div><span className="mr-1.5">🔴</span>{red.length} Overdue</div></div>
       </div>
       {appliances.length === 0 && (
@@ -273,7 +309,7 @@ function MyHome({ appliances, openAppliance, onAdd }) {
   return (
     <div className="max-w-3xl">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="hos-display text-3xl" style={{ color: C.ink, fontWeight: 500 }}>My Appliances</h1>
+        <h1 className="hos-display text-3xl" style={{ color: C.ink, fontWeight: 700 }}>My Appliances</h1>
         <PrimaryButton onClick={() => setShowAdd(true)}><span className="flex items-center gap-1.5"><Plus size={15} /> Add Appliance</span></PrimaryButton>
       </div>
       {appliances.length === 0 ? (
@@ -322,15 +358,17 @@ function AddApplianceModal({ onClose, onSave, saving }) {
 /* ---------------------------------------------------------------------- */
 /*  Appliance Passport                                                     */
 /* ---------------------------------------------------------------------- */
-function AppliancePassport({ appliance, onBack, onAddService, onRequestService }) {
+function AppliancePassport({ appliance, onBack, onAddService, onRequestService, onDelete }) {
   const [showService, setShowService] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const meta = catMeta(appliance.category); const e = evaluateAppliance(appliance);
   const timeline = [{ date: appliance.purchaseDate, activity: "Purchased" }, ...appliance.serviceHistory.map((s) => ({ date: s.date, activity: s.activity }))].sort((a, b) => new Date(a.date) - new Date(b.date));
   if (e.dueDate) timeline.push({ date: e.dueDate, activity: "Next recommended service", upcoming: true });
   return (
     <div className="max-w-2xl">
       <button onClick={onBack} className="hos-body flex items-center gap-1.5 text-sm mb-6" style={{ color: C.muted }}><ArrowLeft size={15} /> Back</button>
-      <div className="flex items-center gap-3 mb-1"><span className="text-3xl">{meta.emoji}</span><h1 className="hos-display text-3xl" style={{ color: C.ink, fontWeight: 500 }}>{appliance.brand} {meta.label}</h1></div>
+      <div className="flex items-center gap-3 mb-1"><span className="text-3xl">{meta.emoji}</span><h1 className="hos-display text-3xl" style={{ color: C.ink, fontWeight: 700 }}>{appliance.brand} {meta.label}</h1></div>
       <div className="mb-6"><Pill status={e.status} /></div>
       <div className="grid sm:grid-cols-2 gap-4 mb-6">
         <InfoCard title="Basic Details"><InfoRow k="Brand" v={appliance.brand} /><InfoRow k="Model" v={appliance.model || "—"} /><InfoRow k="Purchased" v={fmt(appliance.purchaseDate)} /><InfoRow k="Age" v={ageString(appliance.purchaseDate)} /></InfoCard>
@@ -338,7 +376,38 @@ function AppliancePassport({ appliance, onBack, onAddService, onRequestService }
       </div>
       <InfoCard title="Maintenance Timeline"><div className="space-y-3">{timeline.map((t, i) => <div key={i} className="hos-body flex items-center gap-4 text-sm border-t pt-3 first:border-t-0 first:pt-0" style={{ borderColor: C.border }}><span className="w-28 shrink-0" style={{ color: C.muted }}>{fmt(t.date)}</span><span style={{ color: t.upcoming ? C.amber : C.ink, fontWeight: t.upcoming ? 600 : 400 }}>{t.activity}</span></div>)}</div></InfoCard>
       {appliance.note && <div className="hos-body flex items-center gap-2 text-sm mt-4" style={{ color: C.muted }}><FileText size={14} /> {appliance.note}</div>}
-      <div className="flex flex-wrap gap-2 mt-6"><GhostButton onClick={() => setShowService(true)}>➕ Add Service</GhostButton><GhostButton onClick={() => onRequestService(appliance)}>🔧 Find Technician</GhostButton></div>
+      <div className="flex flex-wrap gap-2 mt-6">
+        <GhostButton onClick={() => setShowService(true)}>➕ Add Service</GhostButton>
+        <GhostButton onClick={() => onRequestService(appliance)}>🔧 Find Technician</GhostButton>
+        {!confirmDelete && (
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="hos-body rounded-md border px-4 py-2.5 text-sm font-medium"
+            style={{ borderColor: C.red, color: C.red, background: "transparent" }}
+          >
+            🗑️ Remove Appliance
+          </button>
+        )}
+      </div>
+
+      {confirmDelete && (
+        <div className="hos-body text-sm border rounded-md p-4 mt-3" style={{ borderColor: C.red, background: C.redSoft }}>
+          <p className="mb-3" style={{ color: C.ink }}>
+            This permanently deletes {appliance.brand} {meta.label} and its full service history. This can't be undone.
+          </p>
+          <div className="flex gap-2">
+            <GhostButton onClick={() => setConfirmDelete(false)}>Cancel</GhostButton>
+            <button
+              disabled={deleting}
+              onClick={async () => { setDeleting(true); await onDelete(appliance.id); }}
+              className="hos-body rounded-md px-4 py-2.5 text-sm font-medium disabled:opacity-50"
+              style={{ background: C.red, color: "#fff" }}
+            >
+              {deleting ? "Removing…" : "Yes, remove it"}
+            </button>
+          </div>
+        </div>
+      )}
       {showService && <AddServiceModal onClose={() => setShowService(false)} onSave={async (entry) => { await onAddService(appliance.id, entry); setShowService(false); }} />}
     </div>
   );
@@ -380,7 +449,7 @@ function MaintenanceCalendar({ appliances, openAppliance }) {
   const dotFor = { red: "🔴", amber: "🟡", green: "🟢", blue: "🔵", neutral: "⚪" };
   return (
     <div className="max-w-2xl">
-      <h1 className="hos-display text-3xl mb-1" style={{ color: C.ink, fontWeight: 500 }}>Maintenance Calendar</h1>
+      <h1 className="hos-display text-3xl mb-1" style={{ color: C.ink, fontWeight: 700 }}>Maintenance Calendar</h1>
       <p className="hos-body text-sm mb-8" style={{ color: C.muted }}>Automatically generated from your appliances' service and warranty cycles.</p>
       {Object.keys(groups).length === 0 && <p className="hos-body text-sm" style={{ color: C.muted }}>Add appliances to see your calendar fill in.</p>}
       <div className="space-y-6">
@@ -404,7 +473,7 @@ function Services({ appliances, requests, onSubmit }) {
   useEffect(() => { if (!applianceId && appliances[0]) setApplianceId(appliances[0].id); }, [appliances]);
   return (
     <div className="max-w-xl">
-      <h1 className="hos-display text-3xl mb-1" style={{ color: C.ink, fontWeight: 500 }}>Service Request</h1>
+      <h1 className="hos-display text-3xl mb-1" style={{ color: C.ink, fontWeight: 700 }}>Service Request</h1>
       <p className="hos-body text-sm mb-8" style={{ color: C.muted }}>Need help with an appliance? Tell us what's going on and we'll connect you with a verified technician.</p>
       {appliances.length === 0 ? (
         <p className="hos-body text-sm" style={{ color: C.muted }}>Add an appliance first so we know what needs service.</p>
@@ -449,7 +518,7 @@ function Profile({ profile, onSave, onLogout }) {
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
   return (
     <div className="max-w-sm">
-      <h1 className="hos-display text-3xl mb-6" style={{ color: C.ink, fontWeight: 500 }}>Profile</h1>
+      <h1 className="hos-display text-3xl mb-6" style={{ color: C.ink, fontWeight: 700 }}>Profile</h1>
       <div className="rounded-lg border p-5" style={{ background: C.card, borderColor: C.border }}>
         <Field label="Name"><input className={inputCls} style={inputStyle} value={form.name || ""} onChange={set("name")} /></Field>
         <Field label="Email"><input className={inputCls} style={{ ...inputStyle, background: "#F3F4EF" }} value={form.contact || ""} disabled /></Field>
@@ -512,6 +581,12 @@ export default function App() {
     await api.upsertProfile(session.user.id, { name: form.name, contact: form.contact, city: form.city, members: form.members });
     setProfile(form);
   };
+  const handleDeleteAppliance = async (applianceId) => {
+    await api.deleteAppliance(session.user.id, applianceId);
+    setAppliances((prev) => prev.filter((a) => a.id !== applianceId));
+    setRequests((prev) => prev.filter((r) => r.applianceId !== applianceId));
+    setView("myhome");
+  };
   const handleLogout = async () => { await api.signOut(); };
   const openAppliance = (id) => { setSelectedId(id); setView("passport"); };
 
@@ -528,7 +603,7 @@ export default function App() {
       <div className="flex-1 px-6 py-8 pb-24 md:pb-8 overflow-y-auto">
         {view === "dashboard" && <Dashboard profile={profile} appliances={appliances} setView={setView} openAppliance={openAppliance} />}
         {view === "myhome" && <MyHome appliances={appliances} openAppliance={openAppliance} onAdd={handleAddAppliance} />}
-        {view === "passport" && selected && <AppliancePassport appliance={selected} onBack={() => setView("myhome")} onAddService={handleAddService} onRequestService={() => setView("services")} />}
+        {view === "passport" && selected && <AppliancePassport appliance={selected} onBack={() => setView("myhome")} onAddService={handleAddService} onRequestService={() => setView("services")} onDelete={handleDeleteAppliance} />}
         {view === "calendar" && <MaintenanceCalendar appliances={appliances} openAppliance={openAppliance} />}
         {view === "services" && <Services appliances={appliances} requests={requests} onSubmit={handleSubmitRequest} />}
         {view === "profile" && <Profile profile={profile} onSave={handleSaveProfile} onLogout={handleLogout} />}
@@ -537,3 +612,4 @@ export default function App() {
     </div>
   );
 }
+
