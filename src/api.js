@@ -100,7 +100,10 @@ export async function addServiceRecord(userId, applianceId, entry) {
   if (e2) throw e2;
 }
 
-/* ---- Service requests ---- */
+export async function deleteAppliance(userId, applianceId) {
+  const { error } = await supabase.from("appliances").delete().eq("id", applianceId).eq("user_id", userId);
+  if (error) throw error;
+}/* ---- Service requests ---- */
 export async function fetchRequests(userId) {
   const { data, error } = await supabase
     .from("service_requests")
