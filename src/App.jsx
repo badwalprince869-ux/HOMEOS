@@ -99,56 +99,224 @@ const inputStyle = { borderColor: C.border, color: C.ink };
 /* ---------------------------------------------------------------------- */
 /*  Landing / Auth                                                         */
 /* ---------------------------------------------------------------------- */
-function Landing({ onGetStarted }) {
+function BrandLogo({ size = "text-xl" }) {
+  return (
+    <span className={`hos-display ${size}`} style={{ fontWeight: 800, letterSpacing: "-0.02em" }}>
+      <span style={{ color: C.ink }}>HOME</span><span style={{ color: C.accent }}>OS</span>
+    </span>
+  );
+}
+
+function DashboardIllustration() {
+  return (
+    <svg viewBox="0 0 420 340" className="w-full h-auto">
+      <circle cx="340" cy="60" r="34" fill={C.accentSoft} />
+      <circle cx="380" cy="140" r="16" fill={C.accentSoft} />
+      <circle cx="40" cy="280" r="24" fill={C.accentSoft} />
+      <rect x="40" y="40" width="300" height="200" rx="14" fill={C.ink} />
+      <rect x="56" y="56" width="268" height="168" rx="6" fill={C.paper} />
+      <rect x="72" y="150" width="24" height="60" rx="3" fill={C.accent} opacity="0.35" />
+      <rect x="104" y="120" width="24" height="90" rx="3" fill={C.accent} opacity="0.55" />
+      <rect x="136" y="90" width="24" height="120" rx="3" fill={C.accent} />
+      <rect x="168" y="130" width="24" height="80" rx="3" fill={C.accent} opacity="0.55" />
+      <circle cx="260" cy="100" r="26" fill={C.accentSoft} />
+      <path d="M247 100 l10 10 l18 -22" stroke={C.accent} strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <rect x="230" y="150" width="80" height="10" rx="5" fill={C.border} />
+      <rect x="230" y="168" width="60" height="10" rx="5" fill={C.border} />
+      <rect x="150" y="255" width="120" height="16" rx="8" fill={C.card} stroke={C.border} />
+      <circle cx="90" cy="250" r="20" fill={C.accent} />
+      <rect x="80" y="270" width="20" height="40" rx="6" fill={C.ink} />
+    </svg>
+  );
+}
+
+function MarketingNav({ page, setPage, onGetStarted }) {
+  const navLinks = [
+    { id: "home", label: "Home" },
+    { id: "how", label: "How It Works" },
+    { id: "services", label: "Services" },
+    { id: "faqs", label: "FAQs" },
+  ];
+  return (
+    <div className="border-b" style={{ borderColor: C.border, background: C.card }}>
+      <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+        <button className="flex items-center gap-2" onClick={() => setPage("home")}>
+          <span className="text-2xl">🏠</span>
+          <BrandLogo />
+        </button>
+        <nav className="hidden md:flex items-center gap-8 hos-body text-sm">
+          {navLinks.map((l) => (
+            <button
+              key={l.id}
+              onClick={() => setPage(l.id)}
+              style={{ color: page === l.id ? C.accent : C.muted, fontWeight: page === l.id ? 600 : 400 }}
+            >
+              {l.label}
+            </button>
+          ))}
+        </nav>
+        <button
+          onClick={onGetStarted}
+          className="hos-body rounded-full px-5 py-2.5 text-sm font-semibold"
+          style={{ background: C.accent, color: "#fff" }}
+        >
+          Get Started
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function MarketingShell({ children }) {
+  return <div className="min-h-screen" style={{ background: C.paper, color: C.ink }}>{children}</div>;
+}
+
+function HomePage({ onGetStarted }) {
   const features = [
     { icon: Shield, title: "Track Warranties", text: "Know exactly when every appliance's coverage ends." },
     { icon: Calendar, title: "Never Miss Service", text: "Auto-generated reminders before things break down." },
     { icon: Wrench, title: "Request Help Fast", text: "One tap to get connected with a technician." },
   ];
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: C.paper, color: C.ink }}>
-      <div className="max-w-5xl mx-auto w-full px-6 pt-8 flex items-center gap-2">
-        <span className="text-2xl">🏠</span><span className="hos-display text-xl" style={{ fontWeight: 600 }}>HomeOS</span>
-      </div>
-
-      <div className="flex-1 flex items-center justify-center py-16">
-        <div className="max-w-2xl w-full px-6 text-center">
-          <div className="flex justify-center gap-3 mb-6 text-3xl">
-            <span>❄️</span><span>🚰</span><span>🧺</span><span>🔥</span><span>🧊</span>
-          </div>
-          <h1 className="hos-display leading-[1.05] text-6xl md:text-7xl" style={{ fontWeight: 800 }}>
-            Never forget home<br />maintenance again.
+    <>
+      <div className="max-w-6xl mx-auto px-6 py-16 md:py-24 grid md:grid-cols-2 gap-12 items-center">
+        <div>
+          <h1 className="hos-display leading-[1.05] text-5xl md:text-6xl" style={{ fontWeight: 800 }}>
+            <span style={{ color: C.ink }}>Your Home.</span><br />
+            <span style={{ color: C.accent }}>Our Care.</span><br />
+            <span style={{ color: C.ink }}>Everything Under Control.</span>
           </h1>
-          <p className="hos-body mt-7 text-xl" style={{ color: C.muted }}>
-            Track every appliance's warranty and service schedule in one household control centre.
+          <p className="hos-body mt-6 text-lg" style={{ color: C.muted, maxWidth: "40ch" }}>
+            HomeOS helps you manage your appliances, maintenance, warranties, and service needs — all in one place.
           </p>
-          <div className="mt-10 flex justify-center">
-            <button
-              onClick={onGetStarted}
-              className="hos-body rounded-md px-8 py-4 text-lg font-medium transition-opacity hover:opacity-90"
-              style={{ background: C.accent, color: "#F5F6F1" }}
-            >
-              Get Started Free
-            </button>
-          </div>
-
-          <div className="grid sm:grid-cols-3 gap-6 mt-16 text-left">
-            {features.map((f, i) => {
-              const Icon = f.icon;
-              return (
-                <div key={i} className="rounded-lg border p-5" style={{ background: C.card, borderColor: C.border }}>
-                  <div className="w-9 h-9 rounded-md flex items-center justify-center mb-3" style={{ background: C.accentSoft }}>
-                    <Icon size={18} color={C.accent} />
-                  </div>
-                  <p className="hos-body text-sm font-semibold mb-1" style={{ color: C.ink }}>{f.title}</p>
-                  <p className="hos-body text-sm" style={{ color: C.muted }}>{f.text}</p>
+          <button
+            onClick={onGetStarted}
+            className="hos-body rounded-full px-7 py-3.5 mt-8 text-base font-semibold inline-flex items-center gap-2"
+            style={{ background: C.accent, color: "#fff" }}
+          >
+            Get Started <ChevronRight size={17} />
+          </button>
+        </div>
+        <div className="hidden md:block"><DashboardIllustration /></div>
+      </div>
+      <div className="max-w-6xl mx-auto px-6 pb-20">
+        <div className="grid sm:grid-cols-3 gap-6">
+          {features.map((f, i) => {
+            const Icon = f.icon;
+            return (
+              <div key={i} className="rounded-lg border p-5" style={{ background: C.card, borderColor: C.border }}>
+                <div className="w-9 h-9 rounded-md flex items-center justify-center mb-3" style={{ background: C.accentSoft }}>
+                  <Icon size={18} color={C.accent} />
                 </div>
-              );
-            })}
-          </div>
+                <p className="hos-body text-sm font-semibold mb-1" style={{ color: C.ink }}>{f.title}</p>
+                <p className="hos-body text-sm" style={{ color: C.muted }}>{f.text}</p>
+              </div>
+            );
+          })}
         </div>
       </div>
+    </>
+  );
+}
+
+function HowItWorksPage({ onGetStarted }) {
+  const steps = [
+    { icon: Plus, title: "Add Your Appliances", text: "Enter the brand, model, purchase date, and warranty for each appliance in your home — takes under a minute per item." },
+    { icon: Calendar, title: "Get a Maintenance Calendar", text: "HomeOS builds a month-by-month schedule automatically, based on standard service intervals for each appliance type." },
+    { icon: Shield, title: "Track Warranties & History", text: "Every appliance gets its own page showing warranty status, age, and a full service history in one place." },
+    { icon: Wrench, title: "Request a Technician", text: "When something needs attention, request service in a tap — we connect you with a verified technician." },
+  ];
+  return (
+    <div className="max-w-4xl mx-auto px-6 py-16">
+      <h1 className="hos-display text-4xl mb-3" style={{ fontWeight: 800 }}>How It Works</h1>
+      <p className="hos-body text-lg mb-12" style={{ color: C.muted }}>Four simple steps to a household that manages itself.</p>
+      <div className="space-y-6">
+        {steps.map((s, i) => {
+          const Icon = s.icon;
+          return (
+            <div key={i} className="flex gap-5 rounded-lg border p-5" style={{ background: C.card, borderColor: C.border }}>
+              <div className="w-11 h-11 shrink-0 rounded-full flex items-center justify-center" style={{ background: C.accentSoft }}>
+                <Icon size={20} color={C.accent} />
+              </div>
+              <div>
+                <p className="hos-body text-xs uppercase tracking-wide mb-1" style={{ color: C.accent, fontWeight: 700 }}>Step {i + 1}</p>
+                <p className="hos-body text-lg font-semibold mb-1" style={{ color: C.ink }}>{s.title}</p>
+                <p className="hos-body text-sm" style={{ color: C.muted }}>{s.text}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <button onClick={onGetStarted} className="hos-body rounded-full px-7 py-3.5 mt-10 text-base font-semibold" style={{ background: C.accent, color: "#fff" }}>
+        Get Started
+      </button>
     </div>
+  );
+}
+
+function ServicesPage({ onGetStarted }) {
+  return (
+    <div className="max-w-4xl mx-auto px-6 py-16">
+      <h1 className="hos-display text-4xl mb-3" style={{ fontWeight: 800 }}>Services</h1>
+      <p className="hos-body text-lg mb-10" style={{ color: C.muted }}>HomeOS covers the appliances every household relies on.</p>
+      <div className="grid sm:grid-cols-4 gap-4 mb-12">
+        {CATEGORIES.map((c) => (
+          <div key={c.id} className="rounded-lg border p-4 text-center" style={{ background: C.card, borderColor: C.border }}>
+            <div className="text-3xl mb-2">{c.emoji}</div>
+            <p className="hos-body text-sm font-medium" style={{ color: C.ink }}>{c.label}</p>
+          </div>
+        ))}
+      </div>
+      <div className="rounded-lg border p-6" style={{ background: C.card, borderColor: C.border }}>
+        <p className="hos-body text-lg font-semibold mb-2" style={{ color: C.ink }}>Need a repair or service visit?</p>
+        <p className="hos-body text-sm" style={{ color: C.muted }}>
+          Submit a request from any appliance's page and our team personally connects you with a verified local technician —
+          no automated marketplace, no guesswork, just a real person making sure it gets handled.
+        </p>
+      </div>
+      <button onClick={onGetStarted} className="hos-body rounded-full px-7 py-3.5 mt-10 text-base font-semibold" style={{ background: C.accent, color: "#fff" }}>
+        Get Started
+      </button>
+    </div>
+  );
+}
+
+function FaqsPage({ onGetStarted }) {
+  const faqs = [
+    { q: "Is HomeOS free to use?", a: "Yes. Creating an account and tracking your appliances, warranties, and maintenance schedule is completely free." },
+    { q: "Do you send a technician automatically?", a: "Not yet. When you submit a service request, our team personally connects you with a verified technician." },
+    { q: "Is my household data private?", a: "Yes. Only you can see your own appliances, service history, and requests — no one else's account can access it." },
+    { q: "Which appliances can I track?", a: "AC, Refrigerator, Washing Machine, RO Water Purifier, Geyser, Microwave, TV, and any other appliance under \"Other\"." },
+    { q: "How are maintenance reminders calculated?", a: "Each appliance category has a standard recommended service interval. HomeOS uses your last service date (or purchase date) to predict when the next one is due." },
+  ];
+  return (
+    <div className="max-w-3xl mx-auto px-6 py-16">
+      <h1 className="hos-display text-4xl mb-10" style={{ fontWeight: 800 }}>Frequently Asked Questions</h1>
+      <div className="space-y-5">
+        {faqs.map((f, i) => (
+          <div key={i} className="rounded-lg border p-5" style={{ background: C.card, borderColor: C.border }}>
+            <p className="hos-body font-semibold mb-1.5" style={{ color: C.ink }}>{f.q}</p>
+            <p className="hos-body text-sm" style={{ color: C.muted }}>{f.a}</p>
+          </div>
+        ))}
+      </div>
+      <button onClick={onGetStarted} className="hos-body rounded-full px-7 py-3.5 mt-10 text-base font-semibold" style={{ background: C.accent, color: "#fff" }}>
+        Get Started
+      </button>
+    </div>
+  );
+}
+
+function Marketing({ onGetStarted }) {
+  const [page, setPage] = useState("home");
+  return (
+    <MarketingShell>
+      <MarketingNav page={page} setPage={setPage} onGetStarted={onGetStarted} />
+      {page === "home" && <HomePage onGetStarted={onGetStarted} />}
+      {page === "how" && <HowItWorksPage onGetStarted={onGetStarted} />}
+      {page === "services" && <ServicesPage onGetStarted={onGetStarted} />}
+      {page === "faqs" && <FaqsPage onGetStarted={onGetStarted} />}
+    </MarketingShell>
   );
 }
 
@@ -235,7 +403,7 @@ const NAV_ITEMS = [
 function Sidebar({ view, setView, onLogout }) {
   return (
     <div className="hidden md:flex flex-col w-56 shrink-0 border-r px-4 py-6" style={{ borderColor: C.border }}>
-      <div className="flex items-center gap-2 px-2 mb-8"><span className="text-xl">🏠</span><span className="hos-display text-lg" style={{ fontWeight: 600, color: C.ink }}>HomeOS</span></div>
+      <div className="flex items-center gap-2 px-2 mb-8"><span className="text-xl">🏠</span><BrandLogo size="text-lg" /></div>
       <nav className="flex-1 space-y-1">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon; const active = view === item.id;
@@ -591,7 +759,7 @@ export default function App() {
   const openAppliance = (id) => { setSelectedId(id); setView("passport"); };
 
   if (stage === "loading") return <div className="min-h-screen flex items-center justify-center hos-body" style={{ background: C.paper, color: C.muted }}><style>{FONTS}</style>Loading…</div>;
-  if (stage === "landing") return <div><style>{FONTS}</style><Landing onGetStarted={() => setStage("auth")} /></div>;
+  if (stage === "landing") return <div><style>{FONTS}</style><Marketing onGetStarted={() => setStage("auth")} /></div>;
   if (stage === "auth") return <div><style>{FONTS}</style><AuthScreen onBack={() => setStage("landing")} /></div>;
 
   const selected = appliances.find((a) => a.id === selectedId);
